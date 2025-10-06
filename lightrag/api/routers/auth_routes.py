@@ -12,7 +12,6 @@ from lightrag.api.auth_sessions import (
     authenticate_user,
     clear_auth_cookie,
     get_current_user,
-    session_manager,
     set_auth_cookie,
     serialize_user,
 )
@@ -39,8 +38,7 @@ async def login(payload: LoginRequest, response: Response) -> LoginResponse:
             detail="Invalid username or password",
         )
 
-    token = session_manager.create_session(user)
-    set_auth_cookie(response, token)
+    set_auth_cookie(response, user)
     return LoginResponse(user=serialize_user(user))
 
 
@@ -50,9 +48,6 @@ async def logout(
     request: Request,
     _: AuthenticatedUser = Depends(get_current_user),
 ) -> dict:
-    token = getattr(request.state, "session_token", None)
-    if token:
-        session_manager.revoke_session(token)
     clear_auth_cookie(response)
     response.status_code = status.HTTP_200_OK
     return {"status": "signed_out"}

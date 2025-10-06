@@ -17,7 +17,7 @@ from fastapi import HTTPException, Security, Request, status, Query, Header
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from starlette.status import HTTP_403_FORBIDDEN
 from .auth import auth_handler
-from .auth_sessions import session_manager, SESSION_COOKIE_NAME
+from .auth_sessions import SESSION_COOKIE_NAME, get_user_from_token
 from .config import ollama_server_infos, global_args, get_env_value
 
 async def get_rag(
@@ -37,10 +37,12 @@ async def get_rag(
     if user is None:
         token = request.cookies.get(SESSION_COOKIE_NAME)
         if token:
-            user = session_manager.get_session(token)
-            if user:
+            try:
+                user = get_user_from_token(token)
                 request.state.current_user = user
                 request.state.session_token = token
+            except HTTPException:
+                user = None
 
     user_id = getattr(user, "id", "guest-user")
 
@@ -84,7 +86,7 @@ for path in whitelist_paths:
             whitelist_patterns.append((path, False))  # (exact_path, is_prefix_match)
 
 # Global authentication configuration
-auth_configured = bool(auth_handler.accounts)
+auth_configured = True
 
 
 def get_combined_auth_dependency(api_key: Optional[str] = None):
@@ -106,7 +108,9 @@ def get_combined_auth_dependency(api_key: Optional[str] = None):
 
     # Create security dependencies with proper descriptions for Swagger UI
     oauth2_scheme = OAuth2PasswordBearer(
-        tokenUrl="login", auto_error=False, description="OAuth2 Password Authentication"
+        tokenUrl="/auth/login",
+        auto_error=False,
+        description="OAuth2 Password Authentication",
     )
 
     # If API key is configured, create an API key header security
@@ -159,11 +163,13 @@ def get_combined_auth_dependency(api_key: Optional[str] = None):
         # 3. Fall back to session cookie authentication
         cookie_token = request.cookies.get(SESSION_COOKIE_NAME)
         if cookie_token:
-            session_user = session_manager.get_session(cookie_token)
-            if session_user:
-                request.state.current_user = session_user
+            try:
+                cookie_user = get_user_from_token(cookie_token)
+                request.state.current_user = cookie_user
                 request.state.session_token = cookie_token
                 return
+            except HTTPException:
+                pass
 
         # 4. Accept all request if no API protection needed
         if not auth_configured and not api_key_configured:

@@ -46,8 +46,6 @@ from lightrag.kg.shared_storage import (
     cleanup_keyed_lock,
     finalize_share_data,
 )
-from fastapi.security import OAuth2PasswordRequestForm
-from lightrag.api.auth import auth_handler
 
 # use the .env that is inside the current folder
 # allows to use different .env file for each lightrag instance
@@ -591,41 +589,6 @@ def create_multi_workspace_app(args):
         return {
             "auth_configured": True,
             "auth_mode": "cookie",
-            "core_version": core_version,
-            "api_version": __api_version__,
-            "webui_title": webui_title,
-            "webui_description": webui_description,
-        }
-
-    @app.post("/login")
-    async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-        if not auth_handler.accounts:
-            # Authentication not configured, return guest token
-            guest_token = auth_handler.create_token(
-                username="guest", role="guest", metadata={"auth_mode": "disabled"}
-            )
-            return {
-                "access_token": guest_token,
-                "token_type": "bearer",
-                "auth_mode": "disabled",
-                "message": "Authentication is disabled. Using guest access.",
-                "core_version": core_version,
-                "api_version": __api_version__,
-                "webui_title": webui_title,
-                "webui_description": webui_description,
-            }
-        username = form_data.username
-        if auth_handler.accounts.get(username) != form_data.password:
-            raise HTTPException(status_code=401, detail="Incorrect credentials")
-
-        # Regular user login
-        user_token = auth_handler.create_token(
-            username=username, role="user", metadata={"auth_mode": "enabled"}
-        )
-        return {
-            "access_token": user_token,
-            "token_type": "bearer",
-            "auth_mode": "enabled",
             "core_version": core_version,
             "api_version": __api_version__,
             "webui_title": webui_title,
