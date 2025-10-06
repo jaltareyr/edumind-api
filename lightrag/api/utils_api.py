@@ -17,6 +17,7 @@ from fastapi import HTTPException, Security, Request, status, Query, Header
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from starlette.status import HTTP_403_FORBIDDEN
 from .auth import auth_handler
+from .auth_sessions import session_manager, SESSION_COOKIE_NAME
 from .config import ollama_server_infos, global_args, get_env_value
 
 async def get_rag(
@@ -32,7 +33,16 @@ async def get_rag(
     # Add logic to fetch workspace and user_id for creation / fetching of valid rag instance
     auth_header = request.headers.get("authorization")
 
-    user_id = "101"
+    user = getattr(request.state, "current_user", None)
+    if user is None:
+        token = request.cookies.get(SESSION_COOKIE_NAME)
+        if token:
+            user = session_manager.get_session(token)
+            if user:
+                request.state.current_user = user
+                request.state.session_token = token
+
+    user_id = getattr(user, "id", "guest-user")
 
     workspace = x_workspace or q_workspace or "default"
 
@@ -113,8 +123,11 @@ def get_combined_auth_dependency(api_key: Optional[str] = None):
         if api_key_header is None
         else Security(api_key_header),
     ):
-        # 1. Check if path is in whitelist
         path = request.url.path
+        if path.startswith("/auth/login"):
+            return
+
+        # 1. Check if path is in whitelist
         for pattern, is_prefix in whitelist_patterns:
             if (is_prefix and path.startswith(pattern)) or (
                 not is_prefix and path == pattern
@@ -143,11 +156,23 @@ def get_combined_auth_dependency(api_key: Optional[str] = None):
                     raise
                 # For other exceptions, continue processing
 
-        # 3. Acept all request if no API protection needed
-        if not auth_configured and not api_key_configured:
-            return
+        # 3. Fall back to session cookie authentication
+        cookie_token = request.cookies.get(SESSION_COOKIE_NAME)
+        if cookie_token:
+            session_user = session_manager.get_session(cookie_token)
+            if session_user:
+                request.state.current_user = session_user
+                request.state.session_token = cookie_token
+                return
 
-        # 4. Validate API key if provided and API-Key authentication is configured
+        # 4. Accept all request if no API protection needed
+        if not auth_configured and not api_key_configured:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required",
+            )
+
+        # 5. Validate API key if provided and API-Key authentication is configured
         if (
             api_key_configured
             and api_key_header_value

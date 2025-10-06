@@ -1,14 +1,19 @@
 <template>
   <v-app>
-    <AppPageHeader
-      :title="headerTitle"
-      :description="headerDescription"
-      :show-back="headerShowBack"
-      :actions="headerActions"
-    />
-    <v-main class="app-main">
+    <template v-if="showShell">
+      <AppPageHeader
+        :title="headerTitle"
+        :description="headerDescription"
+        :show-back="headerShowBack"
+        :actions="headerActions"
+      />
+      <v-main class="app-main">
+        <router-view />
+      </v-main>
+    </template>
+    <template v-else>
       <router-view />
-    </v-main>
+    </template>
   </v-app>
 </template>
 
@@ -29,12 +34,13 @@ const headerTitle = computed(() => title.value || appStore.appName)
 const headerDescription = computed(() => description.value || '')
 const headerShowBack = computed(() => showBack.value)
 const headerActions = computed(() => actions.value || [])
+const showShell = computed(() => route.meta?.requiresAuth !== false)
 
 watch(
   () => route.name,
   () => {
     // If a route doesn't set header data, fallback to defaults.
-    if (!title.value) {
+    if (showShell.value && !title.value) {
       headerStore.setHeader({ title: appStore.appName })
     }
   },

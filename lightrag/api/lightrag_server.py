@@ -50,6 +50,7 @@ from lightrag.api.routers.document_routes import (
 from lightrag.api.routers.query_routes import create_query_routes
 from lightrag.api.routers.graph_routes import create_graph_routes
 from lightrag.api.routers.ollama_api import OllamaAPI
+from lightrag.api.routers.auth_routes import router as auth_router
 
 from lightrag.utils import logger, set_verbose_debug
 from lightrag.kg.shared_storage import (
@@ -77,8 +78,8 @@ webui_description = os.getenv("WEBUI_DESCRIPTION")
 config = configparser.ConfigParser()
 config.read("config.ini")
 
-# Global authentication configuration
-auth_configured = bool(auth_handler.accounts)
+# Global authentication configuration: cookie sessions are always enabled for EduMind UI
+auth_configured = True
 
 
 def setup_signal_handlers():
@@ -547,6 +548,9 @@ def create_app(args):
         logger.error(f"Failed to initialize LightRAG: {e}")
         raise
 
+    # Authentication routes
+    app.include_router(auth_router)
+
     # Add routes
     app.include_router(
         create_document_routes(
@@ -569,28 +573,11 @@ def create_app(args):
 
     @app.get("/auth-status")
     async def get_auth_status():
-        """Get authentication status and guest token if auth is not configured"""
-
-        if not auth_handler.accounts:
-            # Authentication not configured, return guest token
-            guest_token = auth_handler.create_token(
-                username="guest", role="guest", metadata={"auth_mode": "disabled"}
-            )
-            return {
-                "auth_configured": False,
-                "access_token": guest_token,
-                "token_type": "bearer",
-                "auth_mode": "disabled",
-                "message": "Authentication is disabled. Using guest access.",
-                "core_version": core_version,
-                "api_version": __api_version__,
-                "webui_title": webui_title,
-                "webui_description": webui_description,
-            }
+        """Expose high level authentication metadata for the web UI."""
 
         return {
             "auth_configured": True,
-            "auth_mode": "enabled",
+            "auth_mode": "cookie",
             "core_version": core_version,
             "api_version": __api_version__,
             "webui_title": webui_title,

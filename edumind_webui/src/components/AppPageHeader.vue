@@ -11,32 +11,60 @@
             <h1 class="text-h5 font-weight-semibold mb-0">{{ title }}</h1>
           </div>
         </div>
-        <div class="app-page-header__actions" v-if="hasVisibleActions">
-          <p v-if="description" class="text-body-2 text-medium-emphasis mb-0">{{ description }}</p>
-          <div class="app-page-header__action-buttons">
-            <v-btn
-              v-if="showBack"
-              variant="text"
-              color="primary"
-              prepend-icon="mdi-arrow-left"
-              @click="handleBack"
-            >
-              Go Back
-            </v-btn>
-            <v-btn
-              v-for="action in actions"
-              :key="action.id"
-              :variant="action.variant || 'flat'"
-              :color="action.color || 'primary'"
-              class="px-6"
-              :prepend-icon="action.icon"
-              :to="action.to"
-              :disabled="action.disabled"
-              :loading="action.loading"
-              @click="handleActionClick(action)"
-            >
-              {{ action.label }}
-            </v-btn>
+        <div class="app-page-header__actions" v-if="hasVisibleActions || isAuthenticated">
+          <div class="app-page-header__actions-left">
+            <p v-if="description" class="text-body-2 text-medium-emphasis mb-0">{{ description }}</p>
+            <div class="app-page-header__action-buttons">
+              <v-btn
+                v-if="showBack"
+                variant="text"
+                color="primary"
+                prepend-icon="mdi-arrow-left"
+                @click="handleBack"
+              >
+                Go Back
+              </v-btn>
+              <v-btn
+                v-for="action in actions"
+                :key="action.id"
+                :variant="action.variant || 'flat'"
+                :color="action.color || 'primary'"
+                class="px-6"
+                :prepend-icon="action.icon"
+                :to="action.to"
+                :disabled="action.disabled"
+                :loading="action.loading"
+                @click="handleActionClick(action)"
+              >
+                {{ action.label }}
+              </v-btn>
+            </div>
+          </div>
+          <div v-if="isAuthenticated" class="app-page-header__user">
+            <v-menu location="bottom" transition="fade-transition">
+              <template #activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  variant="text"
+                  class="app-page-header__user-btn"
+                >
+                  <v-avatar size="36" color="primary" variant="flat">
+                    <span class="app-page-header__user-initials">{{ userInitials }}</span>
+                  </v-avatar>
+                  <span class="app-page-header__user-name">{{ displayName }}</span>
+                </v-btn>
+              </template>
+              <v-list density="comfortable" class="app-page-header__user-menu">
+                <v-list-item>
+                  <v-list-item-title>{{ displayName }}</v-list-item-title>
+                  <v-list-item-subtitle class="text-capitalize">{{ role }}</v-list-item-subtitle>
+                </v-list-item>
+                <v-divider class="my-2" />
+                <v-list-item @click="handleSignOut">
+                  <v-list-item-title class="text-error">Sign out</v-list-item-title>
+                </v-list-item>
+              </v-list>
+            </v-menu>
           </div>
         </div>
       </div>
@@ -47,7 +75,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRouter, type RouteLocationRaw } from 'vue-router';
-import { useAppStore } from '@/stores';
+import { useAppStore, useUserStore } from '@/stores';
 
 interface HeaderAction {
   id: string;
@@ -78,6 +106,7 @@ const props = withDefaults(
 
 const router = useRouter();
 const appStore = useAppStore();
+const userStore = useUserStore();
 
 const organization = computed(() => appStore.organization);
 const organizationInitials = computed(() => appStore.organizationInitials);
@@ -87,6 +116,19 @@ const hasVisibleActions = computed(
   () => Boolean(props.description) || props.showBack || actions.value.length > 0
 );
 
+const isAuthenticated = computed(() => userStore.isAuthenticated);
+const displayName = computed(() => userStore.displayName || 'EduMind Member');
+const role = computed(() => userStore.role);
+const userInitials = computed(() => {
+  const name = displayName.value || '';
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || '')
+    .join('') || 'EM';
+});
+
 const handleBack = () => {
   router.back();
 };
@@ -95,6 +137,11 @@ const handleActionClick = (action: HeaderAction) => {
   if (typeof action.onClick === 'function') {
     action.onClick();
   }
+};
+
+const handleSignOut = async () => {
+  await userStore.signOut();
+  router.replace({ name: 'Login' });
 };
 </script>
 
@@ -123,9 +170,15 @@ const handleActionClick = (action: HeaderAction) => {
 
 .app-page-header__actions {
   display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.app-page-header__actions-left {
+  display: flex;
   flex-direction: column;
-  align-items: flex-end;
   gap: 8px;
+  align-items: flex-end;
 }
 
 .app-page-header__action-buttons {
@@ -136,6 +189,33 @@ const handleActionClick = (action: HeaderAction) => {
   justify-content: flex-end;
 }
 
+.app-page-header__user {
+  display: flex;
+  align-items: center;
+}
+
+.app-page-header__user-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-inline: 12px;
+  text-transform: none;
+}
+
+.app-page-header__user-initials {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.app-page-header__user-name {
+  font-weight: 600;
+  color: rgba(15, 23, 42, 0.9);
+}
+
+.app-page-header__user-menu {
+  min-width: 220px;
+}
+
 @media (max-width: 960px) {
   .app-page-header__bar {
     flex-direction: column;
@@ -144,7 +224,8 @@ const handleActionClick = (action: HeaderAction) => {
   }
 
   .app-page-header__actions {
-    align-items: flex-start;
+    width: 100%;
+    justify-content: space-between;
   }
 
   .app-page-header__action-buttons {

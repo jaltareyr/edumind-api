@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 
 export const useAppStore = defineStore('app', {
   state: () => ({
-    appName: 'EduMind Question Studio',
+    appName: 'AI Studio',
     tagline: 'Craft rich assessments with adaptive AI support.',
     organization: 'EduMind',
     themePreference: 'light',

@@ -64,6 +64,7 @@ export const apiRequest = async (path, options = {}) => {
     body,
     timeout = DEFAULT_TIMEOUT,
     signal,
+    credentials = 'include',
   } = options
 
   console.log('API Request:', { baseUrl, method, path, query, headers, body })
@@ -90,6 +91,7 @@ export const apiRequest = async (path, options = {}) => {
     },
     body: isFormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
     signal: controller.signal,
+    credentials,
   }
 
   try {

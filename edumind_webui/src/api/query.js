@@ -33,6 +33,7 @@ export const streamQuery = async ({ payload, headers = {}, query, signal, onChun
     },
     body: JSON.stringify(payload),
     signal: controller.signal,
+    credentials: 'include',
   })
 
   if (!response.ok) {

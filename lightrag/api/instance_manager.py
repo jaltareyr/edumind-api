@@ -37,6 +37,7 @@ from lightrag.api.routers.workspace_routes import create_workspace_routes
 from lightrag.api.routers.session_routes import create_session_routes
 from lightrag.api.routers.chat_routes import create_chat_routes
 from lightrag.api.routers.question_routes import create_question_routes
+from lightrag.api.routers.auth_routes import router as auth_router
 
 from lightrag.utils import logger, set_verbose_debug
 from lightrag.kg.shared_storage import (
@@ -57,7 +58,7 @@ webui_title = os.getenv("WEBUI_TITLE")
 webui_description = os.getenv("WEBUI_DESCRIPTION")
 
 # Global authentication configuration
-auth_configured = bool(auth_handler.accounts)
+auth_configured = True
 
 from cachetools import LRUCache
 import hashlib, base64, unicodedata
@@ -568,6 +569,9 @@ def create_multi_workspace_app(args):
     # Create working directory if it doesn't exist
     Path(args.working_dir).mkdir(parents=True, exist_ok=True)
 
+    # Authentication routes
+    app.include_router(auth_router)
+
     # Add routes
     app.include_router(create_document_routes(api_key))
     app.include_router(create_query_routes(api_key, args.top_k))
@@ -584,28 +588,9 @@ def create_multi_workspace_app(args):
     
     @app.get("/auth-status")
     async def get_auth_status():
-        """Get authentication status and guest token if auth is not configured"""
-
-        if not auth_handler.accounts:
-            # Authentication not configured, return guest token
-            guest_token = auth_handler.create_token(
-                username="guest", role="guest", metadata={"auth_mode": "disabled"}
-            )
-            return {
-                "auth_configured": False,
-                "access_token": guest_token,
-                "token_type": "bearer",
-                "auth_mode": "disabled",
-                "message": "Authentication is disabled. Using guest access.",
-                "core_version": core_version,
-                "api_version": __api_version__,
-                "webui_title": webui_title,
-                "webui_description": webui_description,
-            }
-
         return {
             "auth_configured": True,
-            "auth_mode": "enabled",
+            "auth_mode": "cookie",
             "core_version": core_version,
             "api_version": __api_version__,
             "webui_title": webui_title,
@@ -754,4 +739,3 @@ def create_multi_workspace_app(args):
 
     return app
         
-
