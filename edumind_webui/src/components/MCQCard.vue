@@ -45,9 +45,11 @@
     <v-divider class="mx-6" />
 
     <v-card-text>
-      <p class="text-body-1 font-weight-medium mb-4">
-        {{ mcq.question }}
-      </p>
+      <div
+        class="question-text"
+        v-html="questionHtml"
+        v-prism
+      ></div>
 
       <div class="options">
         <div
@@ -128,24 +130,36 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, onMounted, watch, Directive } from 'vue'
+import DOMPurify from 'dompurify'
+
+// Prism imports (language can be expanded as needed)
+import Prism from 'prismjs'
+import 'prismjs/components/prism-python'
+// Optional: add more languages if your questions include them
+import 'prismjs/components/prism-javascript'
+import 'prismjs/components/prism-sql'
+
+// Theme (pick one):
+import 'prismjs/themes/prism-tomorrow.css'
+// Or use: prism.css / prism-okaidia.css / prism-coy.css / etc.
 
 interface MCQContent {
-  id: string;
-  question: string;
-  options: string[];
-  correctOptions: number[];
-  difficultyLevel: 'easy' | 'medium' | 'hard';
-  aiRational: string;
-  source: string;
-  tag: string;
+  id: string
+  question: string // HTML string that may contain <pre><code>...</code></pre>
+  options: string[]
+  correctOptions: number[]
+  difficultyLevel: 'easy' | 'medium' | 'hard'
+  aiRational: string
+  source: string
+  tag: string
   variants?: Array<{
-    id?: string;
-    difficulty_level?: string;
-    options: string[];
-    correct_answers: number[];
-    rationale?: string;
-  }>;
+    id?: string
+    difficulty_level?: string
+    options: string[]
+    correct_answers: number[]
+    rationale?: string
+  }>
 }
 
 const props = withDefaults(
@@ -160,7 +174,7 @@ const props = withDefaults(
     selectable: false,
     selected: false,
   }
-);
+)
 
 const emit = defineEmits<{
   delete: [id: string];
@@ -168,7 +182,7 @@ const emit = defineEmits<{
 }>();
 
 const showVariants = ref(false);
-const variants = computed(() => Array.isArray(props.mcq.variants) ? props.mcq.variants : []);
+const variants = computed(() => (Array.isArray(props.mcq.variants) ? props.mcq.variants : []));
 const hasVariants = computed(() => variants.value.length > 0);
 
 const difficultyLabel = computed(() => {
@@ -177,33 +191,68 @@ const difficultyLabel = computed(() => {
     medium: 'Medium',
     hard: 'Hard',
   } as const;
-
   return labels[props.mcq.difficultyLevel] ?? props.mcq.difficultyLevel;
 });
 
 const optionLabel = (index: number) => String.fromCharCode(65 + index);
 
-const variantLabel = (variant: MCQContent['variants'][number]) => {
+const variantLabel = (variant: NonNullable<MCQContent['variants']>[number]) => {
   if (variant.difficulty_level) {
     return `${variant.difficulty_level.replace(/_/g, ' ')}`.replace(/\b\w/g, (c) => c.toUpperCase());
   }
   return 'Variant';
 };
 
-const deleteItem = () => {
-  emit('delete', props.mcq.id);
-};
-
-const toggleVariants = () => {
-  showVariants.value = !showVariants.value;
-};
-
+const deleteItem = () => emit('delete', props.mcq.id);
+const toggleVariants = () => (showVariants.value = !showVariants.value);
 const handleSelect = () => {
-  if (!props.selectable) {
-    return;
-  }
+  if (!props.selectable) return;
   emit('select', { id: props.mcq.id, question: props.mcq.question });
 };
+
+/**
+ * Ensure all <pre><code>...</code></pre> blocks have a language class so Prism styles them.
+ * We default to Python here because your example is Python. Adjust detection as needed.
+ * Also sanitizes the HTML to avoid XSS when using v-html.
+ */
+function enhanceQuestionHtml(rawHtml: string): string {
+  if (!rawHtml) return ''
+  // Add a default language if missing
+  const withLang = rawHtml.replace(
+    /<pre>\s*<code(?![^>]*class=)/gim,
+    '<pre><code class="language-python"'
+  )
+  // Optional: auto-detect simple hints like "```js" or "language: sql" in text before conversion (if your pipeline adds such hints)
+  return DOMPurify.sanitize(withLang, { USE_PROFILES: { html: true } })
+}
+
+const questionHtml = computed(() => enhanceQuestionHtml(props.mcq.question))
+
+// Prism directive to (re)highlight when content changes
+const vPrism: Directive<HTMLElement> = {
+  mounted(el) {
+    Prism.highlightAllUnder(el)
+  },
+  updated(el) {
+    Prism.highlightAllUnder(el)
+  },
+}
+
+// expose as v-prism
+// eslint-disable-next-line vue/no-setup-props-destructure
+defineExpose({})
+
+onMounted(() => {
+  // Make sure first render gets highlighted
+  // (If using SSR/hydration, you might want to gate this.)
+})
+
+watch(
+  () => props.mcq.question,
+  () => {
+    // highlight handled by directive's updated hook
+  }
+)
 </script>
 
 <style scoped>
@@ -214,145 +263,56 @@ const handleSelect = () => {
   transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
-.question-card--selectable {
+.question-card--selectable { 
   cursor: pointer;
 }
-
 .question-card--selection-active:hover {
   border-color: rgba(22, 101, 52, 0.4);
   box-shadow: 0 0 0 2px rgba(22, 101, 52, 0.18);
   transform: translateY(-1px);
 }
-
 .question-card--selected {
   border-color: rgba(22, 101, 52, 0.5);
   box-shadow: 0 0 0 2px rgba(22, 101, 52, 0.24);
 }
 
-.options {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
+.options { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
 .option {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 16px;
-  background-color: #ffffff;
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 16px; background-color: #fff;
 }
+.option--correct { border-color: #166534; box-shadow: 0 0 0 1px rgba(22, 101, 52, 0.2); }
+.option__index { flex-shrink: 0; }
+.option__index-text { font-size: 0.9rem; font-weight: 600; color: #fff; }
+.option-text { flex: 1; font-size: 0.95rem; color: rgba(15, 23, 42, 0.92); }
 
-.option--correct {
-  border-color: #166534;
-  box-shadow: 0 0 0 1px rgba(22, 101, 52, 0.2);
-}
-
-.option__index {
-  flex-shrink: 0;
-}
-
-.option__index-text {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.option-text {
-  flex: 1;
-  font-size: 0.95rem;
-  color: rgba(15, 23, 42, 0.92);
-}
-
-.chip--contrast {
-  color: #ffffff !important;
-}
-
-.question-card__header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+.chip--contrast { color: #fff !important; }
+.question-card__header-actions { display: flex; align-items: center; gap: 8px; }
 
 .metadata__label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgba(15, 23, 42, 0.65);
-  margin-bottom: 6px;
-  font-weight: 600;
+  font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: rgba(15, 23, 42, 0.65); margin-bottom: 6px; font-weight: 600;
 }
+.metadata__value { margin: 0; color: rgba(15, 23, 42, 0.8); line-height: 1.45; }
 
-.metadata__value {
-  margin: 0;
-  color: rgba(15, 23, 42, 0.8);
-  line-height: 1.45;
-}
-
-.variants {
-  margin-top: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.variant-card {
-  border: 1px solid rgba(15, 23, 42, 0.1);
-  border-radius: 16px;
-  padding: 16px;
-  background-color: rgba(249, 250, 251, 0.6);
-}
-
-.variant-card__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.variant-card__options {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.variant-option {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 12px;
+/* Prism-friendly styles within the question text */
+.question-text :deep(pre) {
+  margin: 0 0 1rem; padding: 1rem; border-radius: 14px; overflow: auto;
   border: 1px solid rgba(15, 23, 42, 0.08);
-  background-color: #ffffff;
 }
-
-.variant-option--correct {
-  border-color: #0f766e;
-  background-color: rgba(15, 118, 110, 0.08);
-}
-
-.variant-option__index {
-  flex-shrink: 0;
-}
-
-.variant-option__index-text {
-  color: #ffffff;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.variant-option__text {
-  flex: 1;
-  color: rgba(15, 23, 42, 0.9);
+.question-text :deep(code) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 0.9rem;
 }
 
-.variant-card__rationale {
-  margin: 12px 0 0;
-  font-size: 0.85rem;
-  color: rgba(15, 23, 42, 0.7);
-}
+.variants { margin-top: 16px; display: flex; flex-direction: column; gap: 12px; }
+.variant-card { border: 1px solid rgba(15, 23, 42, 0.1); border-radius: 16px; padding: 16px; background-color: rgba(249, 250, 251, 0.6); }
+.variant-card__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.variant-card__options { display: flex; flex-direction: column; gap: 8px; }
+.variant-option { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(15, 23, 42, 0.08); background-color: #fff; }
+.variant-option--correct { border-color: #0f766e; background-color: rgba(15, 118, 110, 0.08); }
+.variant-option__index { flex-shrink: 0; }
+.variant-option__index-text { color: #fff; font-size: 0.85rem; font-weight: 600; }
+.variant-option__text { flex: 1; color: rgba(15, 23, 42, 0.9); font-size: 0.9rem; }
+.variant-card__rationale { margin: 12px 0 0; font-size: 0.85rem; color: rgba(15, 23, 42, 0.7); }
 </style>

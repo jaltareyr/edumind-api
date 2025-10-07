@@ -89,7 +89,7 @@
       <div class="distractor-form__actions">
         <div class="distractor-form__action-copy">
           <p class="text-caption text-medium-emphasis mb-0">
-            Variants are added to the selected MCQ on the current canvas. You’ll see them expand under the card.
+            Note: Variants are added to the selected MCQ on the current canvas. You’ll see them expand under the card.
           </p>
         </div>
         <div class="distractor-form__action-buttons">

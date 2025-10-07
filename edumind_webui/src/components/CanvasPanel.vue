@@ -185,7 +185,7 @@ const handleSelectForDistractor = (payload: { id: string; question: string }) =>
 .canvas-panel__header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 24px;
   flex-wrap: wrap;
 }

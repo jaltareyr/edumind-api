@@ -4,13 +4,8 @@
       <div class="dashboard-page__intro">
         <div>
           <h2 class="text-subtitle-1 font-weight-semibold mb-1">Curate your knowledge spaces</h2>
-          <p class="text-body-2 text-medium-emphasis mb-0">
-            Review the workspaces generated for user 101 and continue your creation flow.
-          </p>
         </div>
-      </div>
-
-      <div class="dashboard-page__actions-toolbar">
+        <div class="dashboard-page__actions-toolbar">
         <v-btn
           color="primary"
           variant="flat"
@@ -29,6 +24,7 @@
         >
           Refresh
         </v-btn>
+      </div>
       </div>
 
       <div v-if="loading" class="dashboard-page__state">
@@ -414,6 +410,7 @@ watch([loading, savingWorkspace, deletingWorkspace], () => {
 .dashboard-page__actions-toolbar {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 8px;

@@ -8,7 +8,7 @@
         <span>Search with AI</span>
       </v-tab>
       <v-tab value="creative" class="tool-shell__tab">
-        <span>Creative Toolkit</span>
+        <span>AI Toolkit</span>
       </v-tab>
     </v-tabs>
 
@@ -16,6 +16,15 @@
       <v-window-item value="files" class="tool-shell__pane">
         <div class="files-pane">
           <div class="files-pane__actions">
+            <v-btn
+              variant="text"
+              color="primary"
+              prepend-icon="mdi-refresh"
+              :loading="documentsLoading"
+              @click="refreshDocuments"
+            >
+              Refresh
+            </v-btn>
             <v-menu v-model="menuOpen" location="bottom" :offset="8" transition="fade-transition">
               <template #activator="{ props }">
                 <v-btn color="primary" variant="flat" prepend-icon="mdi-plus" v-bind="props">
@@ -31,15 +40,6 @@
                 </v-list-item>
               </v-list>
             </v-menu>
-            <v-btn
-              variant="text"
-              color="primary"
-              prepend-icon="mdi-refresh"
-              :loading="documentsLoading"
-              @click="refreshDocuments"
-            >
-              Refresh
-            </v-btn>
           </div>
 
           <div v-if="documentsLoading" class="files-pane__state">
@@ -499,6 +499,7 @@ watch(
 .files-pane__actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 12px;
   flex-wrap: wrap;
 }
@@ -621,10 +622,6 @@ watch(
 @media (max-width: 960px) {
   .tool-shell__pane {
     padding: 16px;
-  }
-
-  .files-pane__actions {
-    justify-content: space-between;
   }
 }
 </style>

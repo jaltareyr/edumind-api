@@ -3,13 +3,22 @@
     <v-container class="py-0" fluid>
       <div class="app-page-header__bar">
         <div class="app-page-header__brand">
-          <v-avatar color="primary" size="48" variant="flat">
-            <span class="app-page-header__brand-initials text-subtitle-1 font-weight-semibold">{{ organizationInitials }}</span>
-          </v-avatar>
-          <div>
-            <p class="text-overline text-uppercase text-medium-emphasis mb-1">{{ organization }}</p>
-            <h1 class="text-h5 font-weight-semibold mb-0">{{ title }}</h1>
-          </div>
+          <RouterLink
+            class="app-page-header__brand-link"
+            :to="{ name: 'Dashboard' }"
+            aria-label="Go to dashboard"
+            title="Go to dashboard"
+          >
+            <v-avatar color="primary" size="48" variant="flat">
+              <span class="app-page-header__brand-initials text-subtitle-1 font-weight-semibold">
+                {{ organizationInitials }}
+              </span>
+            </v-avatar>
+            <div>
+              <p class="text-overline text-uppercase text-medium-emphasis mb-1">{{ organization }}</p>
+              <h1 class="text-h5 font-weight-semibold mb-0">{{ title }}</h1>
+            </div>
+          </RouterLink>
         </div>
         <div class="app-page-header__actions" v-if="hasVisibleActions">
           <p v-if="description" class="text-body-2 text-medium-emphasis mb-0">{{ description }}</p>
@@ -137,6 +146,7 @@ const handleLogout = async () => {
 }
 
 .app-page-header__brand {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -159,6 +169,19 @@ const handleLogout = async () => {
   gap: 12px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.app-page-header__brand-link {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.app-page-header__brand-link:hover .app-page-header__brand-initials {
+  opacity: 0.5;
 }
 
 @media (max-width: 960px) {
