@@ -70,19 +70,12 @@
             <div v-else class="canvas-panel__list">
               <template v-for="output in tab.outputs" :key="output.id">
                 <MCQCard
-                  v-if="output.type === 'mcq' || output.type === 'multiple_response'"
                   :mcq="output"
                   :show-actions="true"
                   :selectable="distractorSelectionActive"
                   :selected="selectedDistractorQuestionId === output.id"
                   @delete="handleDeleteOutput"
                   @select="handleSelectForDistractor"
-                />
-                <AssignmentCard
-                  v-else
-                  :assignment="output"
-                  :show-actions="true"
-                  @delete="handleDeleteOutput"
                 />
               </template>
             </div>
@@ -97,7 +90,6 @@
 import { computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import MCQCard from '@/components/MCQCard.vue';
-import AssignmentCard from '@/components/AssignmentCard.vue';
 import { useHomeStore, useDistractorGeneratorStore } from '@/stores';
 
 const homeStore = useHomeStore();

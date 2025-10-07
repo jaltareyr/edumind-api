@@ -176,7 +176,7 @@ def create_question_routes(api_key: Optional[str] = None) -> APIRouter:
         user_id: Optional[str] = Query(None),
         session_id: Optional[str] = Query(None),
         project_id: Optional[str] = Query(None),
-        type: Optional[str] = Query(None, description="Filter by question type ('mcq' or 'multiple_response')"),
+        type: Optional[str] = Query(None, description="Filter by question type ('mcq' or 'multiple_response' or 'true_false')"),
         hasVariants: Optional[bool] = Query(None, description="Filter questions that have variants"),
         isApproved: Optional[bool] = Query(None),
         isArchived: Optional[bool] = Query(False),
@@ -199,7 +199,7 @@ def create_question_routes(api_key: Optional[str] = None) -> APIRouter:
                 where.append(QuestionModel.project_id == project_id)
             if type:
                 normalised_type = type.strip().lower()
-                if normalised_type not in {"mcq", "multiple_response"}:
+                if normalised_type not in {"mcq", "multiple_response", "true_false"}:
                     raise HTTPException(status_code=400, detail="Unsupported type filter. Use 'mcq' or 'multiple_response'.")
                 where.append(QuestionModel.type == normalised_type)
             if hasVariants is not None:

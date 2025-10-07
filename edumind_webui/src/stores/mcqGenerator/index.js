@@ -9,6 +9,7 @@ const defaultState = () => ({
   quantity: 5,
   difficulty: 'medium',
   allowMulti: false,
+  onlyTF: false,
   userInstructions: '',
   userNotes: '',
   sessionId: '',
@@ -115,6 +116,7 @@ export const useMcqGeneratorStore = defineStore('mcqGenerator', {
         user_notes: this.userNotes,
         max_concurrency: this.maxConcurrency,
         allow_multi: this.allowMulti,
+        only_tf: this.onlyTF,
       }
 
       this.loading = true

@@ -84,6 +84,7 @@ const normaliseQuestion = (question) => {
     difficulty_level: question.difficulty_level || 'medium',
     ai_rational: question.ai_rational || question.rationale || 'AI generated question.',
     source: question.source || 'AI Generator',
+    type: question.type || 'mcq',
     tag: tags.length ? tags[0] : 'Untagged',
     tags,
     isApproved: Boolean(question.isApproved),

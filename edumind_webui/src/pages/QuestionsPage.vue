@@ -174,13 +174,7 @@
               <div v-else class="results-card__list">
                 <template v-for="question in filteredQuestions" :key="question.id">
                   <MCQCard
-                    v-if="question.type === 'mcq' || question.type === 'multiple_response'"
                     :mcq="convertToMCQ(question)"
-                    :show-actions="false"
-                  />
-                  <AssignmentCard
-                    v-else
-                    :assignment="convertToAssignment(question)"
                     :show-actions="false"
                   />
                 </template>
@@ -223,12 +217,11 @@
 import { computed, onMounted, onUnmounted, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import MCQCard from '@/components/MCQCard.vue';
-import AssignmentCard from '@/components/AssignmentCard.vue';
 import { useQuestionsStore, useDashboardStore, useWorkspaceContextStore, useHeaderStore } from '@/stores';
 
 interface DatabaseQuestion {
   id: string;
-  type: 'mcq' | 'multiple_response' | 'assignment';
+  type: 'mcq' | 'multiple_response' | 'true_false' | 'assignment';
   question: string;
   options: string[] | null;
   correct_options: number[] | null;
@@ -322,6 +315,7 @@ const typeOptions = [
   { title: 'All types', value: 'all' },
   { title: 'Multiple Choice (single answer)', value: 'mcq' },
   { title: 'Multiple Response', value: 'multiple_response' },
+  { title: 'True False', value: 'true_false' },
 ];
 
 const difficultyOptions = [
@@ -390,17 +384,9 @@ const convertToMCQ = (question: DatabaseQuestion) => ({
   difficultyLevel: question.difficulty_level,
   aiRational: question.ai_rational,
   source: question.source,
+  type: question.type,
   tag: question.tag,
   variants: question.variants || [],
-});
-
-const convertToAssignment = (question: DatabaseQuestion) => ({
-  id: question.id,
-  question: question.question,
-  difficultyLevel: question.difficulty_level,
-  aiRational: question.ai_rational,
-  source: question.source,
-  tag: question.tag,
 });
 
 let fetchTimeout: ReturnType<typeof setTimeout> | null = null;

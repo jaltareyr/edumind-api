@@ -60,6 +60,7 @@ class GenerateQuestionsRequest(BaseModel):
     max_concurrency: int = 5
     user_notes: str = ""
     allow_multi: bool = False
+    only_tf: bool = False
 
 class GeneratedQuestionsResponse(BaseModel):
     message: str
@@ -90,6 +91,34 @@ class _MCQ(BaseModel):
     def _idx(cls, v):
         if v not in (0, 1, 2, 3):
             raise ValueError("correct_index must be 0..3")
+        return v
+    
+class _TFQ(BaseModel):
+    subtopic: str
+    question: str                 # a single factual statement users judge T/F
+    options: List[str]            # exactly ["True","False"] or ["False","True"]
+    correct_index: int            # 0 or 1
+    difficulty: str
+    tags: List[str] = []
+    source: str
+    type: str = "true_false"
+
+    @field_validator("options")
+    @classmethod
+    def _exact_two(cls, v):
+        if len(v) != 2:
+            raise ValueError("options must be length 2 for TF")
+        # enforce canonical T/F tokens to keep UI simple
+        norm = [o.strip().lower() for o in v]
+        if set(norm) != {"true", "false"}:
+            raise ValueError("options for TF must be True/False in some order")
+        return v
+
+    @field_validator("correct_index")
+    @classmethod
+    def _idx(cls, v):
+        if v not in (0, 1):
+            raise ValueError("correct_index must be 0 or 1 for TF")
         return v
 
 class _MCQMulti(BaseModel):
@@ -309,6 +338,51 @@ INSTRUCTIONS (authoritative, optional): {instructions}
 _variant_llm = generation_llm.bind(timeout=60)
 _variant_chain = _variant_prompt | _variant_llm | _variant_parser
 
+_tf_parser = PydanticOutputParser(pydantic_object=_TFQ)
+_tf_prompt = ChatPromptTemplate.from_template(
+    """-Task-
+You are an expert professor. Create ONE high-quality *true-false* question for the subtopic: "{subtopic}"
+
+-Grounding & Sources-
+Ground your question in the provided CONTEXT. You may synthesize a **self-contained code snippet** *only* to illustrate concepts already present in the CONTEXT (no external domain facts).
+
+-Authority & Compliance-
+**USER Instructions are authoritative.** If USER Instructions ask for code examples/snippets, you **must** include them in the *question stem*. If a generic guideline conflicts with USER Instructions, follow USER Instructions (unless unsafe).
+
+-Difficulty-
+Match the requested difficulty exactly: {difficulty}
+(Guide: Easy = direct recall of fundamentals; Medium = integrate 1–2 ideas with moderate analysis; Hard = deeper analysis, multi-step reasoning, edge cases.)
+
+-Quality & Pedagogy-
+1) Follow the subtopic precisely; test a *key idea* from CONTEXT, not trivia.
+2) Prefer analysis/application over rote recall, aligned to {difficulty}.
+3) Use a concise, authentic scenario when helpful—do not introduce facts beyond CONTEXT.
+4) Clarity: unambiguous stem; avoid negatives (“NOT/EXCEPT”) unless necessary.
+5) Inclusivity: broadly relatable examples.
+6) Code snippets:
+   - If USER Instructions request snippets, include **exactly one** small snippet **in the stem** formatted as:
+     <pre><code>
+     // each line on its own line
+     </code></pre>
+   - Keep it minimal, language-agnostic or Python-like, and strictly illustrative of concepts in CONTEXT.
+7) Options: Exactly 2 options (True / False); one and only one correct.
+8) Tags: 1–2 short, relevant tags (≤2 words) drawn from CONTEXT.
+9) Source: Provide the valid source content path / link.
+10) Output must be strictly valid JSON per the schema.
+
+-Return JSON only-
+{format_instructions}
+
+-CONTEXT-
+{context}
+
+-USER Instructions-
+{user_instructions}
+"""
+).partial(format_instructions=_tf_parser.get_format_instructions())
+
+_tf_llm = generation_llm.bind(timeout=60)
+_tf_chain = _tf_prompt | _tf_llm | _tf_parser
 # -----------------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------------
@@ -349,9 +423,14 @@ async def _gen_one_mcq(
     difficulty: str,
     sem: asyncio.Semaphore,
     allow_multi: bool = False,
-    user_instructions: str = "", 
+    user_instructions: str = "",
+    only_tf: bool = False, 
 ) -> Union[_MCQ, _MCQMulti]:
     async with sem:
+        if only_tf:
+            return await _tf_chain.ainvoke(
+                {"subtopic": subtopic, "context": context, "difficulty": difficulty, "user_instructions": user_instructions}
+            )
         if allow_multi:
             return await _mcq_multi_chain.ainvoke(
                 {"subtopic": subtopic, "context": context, "difficulty": difficulty, "user_instructions": user_instructions}
@@ -371,6 +450,7 @@ async def _gen_many_mcqs_distinct(
     q_sim_max: float = 0.80,
     max_rounds: int = 3,
     allow_multi: bool = False,
+    only_tf: bool = False,
 ) -> List[Union[_MCQ, _MCQMulti]]:
     """
     1) Plan subtopics (oversample) + topic de-dup
@@ -402,7 +482,7 @@ async def _gen_many_mcqs_distinct(
         batch = await asyncio.gather(
             *[
                 asyncio.create_task(
-                    _gen_one_mcq(t, context, difficulty, sem, allow_multi=allow_multi)
+                    _gen_one_mcq(t, context, difficulty, sem, allow_multi=allow_multi, only_tf=only_tf)
                 )
                 for t in batch_topics
             ],
@@ -596,6 +676,7 @@ def create_chat_routes(api_key: Optional[str] = None) -> APIRouter:
             q_sim_max=0.80,
             max_rounds=3,
             allow_multi=payload.allow_multi,
+            only_tf=payload.only_tf,
         )
 
         if not mcqs:

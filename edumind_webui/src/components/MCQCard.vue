@@ -12,10 +12,7 @@
     <v-card-item>
       <div class="d-flex align-center justify-space-between flex-wrap gap-3">
         <div class="d-flex align-center gap-2">
-          <v-chip label color="primary" variant="flat" size="small" class="chip--contrast">MCQ</v-chip>
-          <v-chip label color="primary" variant="outlined" size="small" class="text-uppercase">
-            {{ difficultyLabel }}
-          </v-chip>
+          <v-chip label color="primary" variant="flat" size="small" class="chip--contrast">{{ question_type }}</v-chip>
         </div>
         <div class="question-card__header-actions">
           <v-btn
@@ -75,11 +72,13 @@
       <v-divider class="my-4" />
 
       <v-row class="metadata" align="stretch" no-gutters>
-        <v-col cols="12" md="6" class="pr-md-4 mb-4 mb-md-0">
-          <p class="metadata__label">AI Rationale</p>
-          <p class="metadata__value">{{ mcq.aiRational }}</p>
+        <v-col cols="12" md="2" class="pr-md-4 mb-4 mb-md-0">
+          <p class="metadata__label">Difficulty Level</p>
+          <v-chip label color="primary" variant="outlined" size="small" class="text-uppercase">
+            {{ difficultyLabel }}
+          </v-chip>
         </v-col>
-        <v-col cols="12" md="3" class="pr-md-4 mb-4 mb-md-0">
+        <v-col cols="12" md="7" class="pr-md-4 mb-4 mb-md-0">
           <p class="metadata__label">Source</p>
           <p class="metadata__value">{{ mcq.source }}</p>
         </v-col>
@@ -152,6 +151,7 @@ interface MCQContent {
   difficultyLevel: 'easy' | 'medium' | 'hard'
   aiRational: string
   source: string
+  type: 'mcq' | 'multiple_response' | 'true_false' | 'assignment'
   tag: string
   variants?: Array<{
     id?: string
@@ -180,6 +180,12 @@ const emit = defineEmits<{
   delete: [id: string];
   select: [payload: { id: string; question: string }];
 }>();
+
+const question_type = computed(() => 
+  props.mcq.type === 'mcq' ? 'MCQ' :
+  props.mcq.type === 'multiple_response' ? 'Multiple Response' :
+  props.mcq.type === 'true_false' ? 'True / False' : 'Question'
+);
 
 const showVariants = ref(false);
 const variants = computed(() => (Array.isArray(props.mcq.variants) ? props.mcq.variants : []));
