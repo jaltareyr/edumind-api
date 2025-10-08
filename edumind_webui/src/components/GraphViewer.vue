@@ -7,6 +7,7 @@ import louvain from 'graphology-communities-louvain'
 import { NodeBorderProgram } from '@sigma/node-border'
 import { EdgeCurvedArrowProgram, createEdgeCurveProgram } from '@sigma/edge-curve'
 import { EdgeArrowProgram, NodePointProgram, NodeCircleProgram } from 'sigma/rendering'
+import GraphPropertiesView from './GraphPropertiesView.vue'
 
 // Pinia graph store (the JS version we created earlier)
 import { useGraphStore } from '@/stores/graph'
@@ -16,6 +17,8 @@ import { useHomeStore } from '@/stores/home'
 const containerRef = ref(null)
 const graphStore = useGraphStore()
 const homeStore = useHomeStore()
+
+const panelHover = ref(false)
 
 // Store-backed state
 const isFetching = computed(() => graphStore.isFetching)
@@ -266,20 +269,18 @@ onBeforeUnmount(() => {
         <v-btn color="primary" variant="flat" @click="resetCamera">
           Reset camera
         </v-btn>
-        <v-switch
-          v-model="enableNodeDrag"
-          color="primary"
-          hide-details
-          inset
-          label="Drag nodes"
-        />
       </div>
     </v-card>
 
-    <!-- Sigma viewport -->
     <div ref="containerRef" class="sigma-viewport" style="height:100%; width:100%; background:var(--v-theme-background); user-select:none;"></div>
 
-    <!-- Loading overlay (Vuetify only) -->
+    <div
+      v-show="graphStore.focusedNode"
+      style="position:absolute; top:12px; right:12px; z-index: 20; max-width:340px;"    
+    >
+      <GraphPropertiesView />
+    </div>
+
     <v-overlay
       :model-value="isFetching"
       class="align-center justify-center"

@@ -38,8 +38,8 @@ async def get_rag(
     if token_user_id and x_user_id and x_user_id != token_user_id:
         raise HTTPException(status_code=401, detail="X-User-ID mismatch")
     
-    user_id = token_user_id or x_user_id or "guest"
-    workspace = x_workspace or q_workspace or "default"
+    user_id = token_user_id
+    workspace = x_workspace
 
     manager = request.app.state.instance_manager
     rag, doc_manager = await manager.get_instance(user_id, workspace)
