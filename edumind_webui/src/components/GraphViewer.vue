@@ -230,15 +230,13 @@ function onMouseUp(e) {
   e?.original?.stopPropagation?.()
 }
 
-// ---------- Watchers ----------
 watch(
   () => graphStore.sigmaGraph,
-  (newGraph) => {
-    // rebuild renderer for the new graph instance
+  async (newGraph) => {
     createRenderer(newGraph || new DirectedGraph())
+    await nextTick()
 
-    // compute communities + sizing + layout
-    if (newGraph && newGraph.order > 0) {
+    if (sigma && newGraph && newGraph.order > 0) {
       try { computeCommunities(newGraph) } catch {}
       sizeByDegree(newGraph)
       runSpringLayout(newGraph)
@@ -261,6 +259,22 @@ watch(
     // Keep user’s current zoom; only pan
     cam.animate({ x, y, ratio: cam.getState().ratio }, { duration: 500 })
     graphStore.setMoveToSelectedNode(false)
+  }
+)
+
+onMounted(() => {
+  createRenderer(new DirectedGraph())
+})
+
+watch(
+  () => graphStore.sigmaGraph,
+  (newGraph) => {
+    if (!sigma || !newGraph) return
+    computeCommunities(newGraph)
+    sizeByDegree(newGraph)
+    runSpringLayout(newGraph)
+    sigma.refresh()
+    resetCamera()
   }
 )
 
