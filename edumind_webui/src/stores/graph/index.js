@@ -127,7 +127,6 @@ export const useGraphStore = defineStore('graph', {
       this.searchEngine = null
       this.moveToSelectedNode = false
       this.graphIsEmpty = false
-      // keep labels/typeColorMap across resets unless you prefer not to
     },
 
     incrementGraphDataVersion() {
@@ -137,12 +136,6 @@ export const useGraphStore = defineStore('graph', {
     triggerNodeExpand(nodeId) { this.nodeToExpand = nodeId },
     triggerNodePrune(nodeId) { this.nodeToPrune = nodeId },
 
-    // --------- API calls ---------
-
-    /**
-     * Fetch labels from backend and merge with ['*'].
-     * Uses your GET /graph/label/list wrapper. Accepts optional query/headers.
-     */
     async fetchAllDatabaseLabels() {
       try {
         const query = {}
@@ -157,23 +150,16 @@ export const useGraphStore = defineStore('graph', {
         console.error('fetchAllDatabaseLabels failed:', err)
         this.setAllDatabaseLabels(['*'])
         this.setLabelsFetchAttempted(true)
-        // surface error if you like
       }
     },
 
-    /**
-     * Fetch graph data using your GET /graphs wrapper (queryGraph).
-     * Expected shape:
-     *   { nodes: RawNodeType[], edges: RawEdgeType[] }
-     * If your API differs, adapt _normalizeGraphResponse below.
-     */
     async fetchGraph() {
       this.setIsFetching(true)
       this.setGraphDataFetchAttempted(true)
       try {
         const query = { 
             label: '*',
-            max_depth: 3,
+            max_depth: 6,
             max_nodes: 1000
         }
 
@@ -266,13 +252,6 @@ export const useGraphStore = defineStore('graph', {
       return { nodes: [], edges: [] }
     },
 
-    // --------- Graph mutation helpers (mirror your Zustand logic) ---------
-
-    /**
-     * Update a node property and keep store selections in sync.
-     * Also supports renaming entity_id where nodeId === entityId (NetworkX style),
-     * rebuilding edges around the new node id while keeping dynamicId mappings.
-     */
     async updateNodeAndSelect(nodeId, entityId, propertyName, newValue) {
       const sigmaGraph = this.sigmaGraph
       const rawGraph = this.rawGraph
@@ -357,10 +336,6 @@ export const useGraphStore = defineStore('graph', {
       }
     },
 
-    /**
-     * Update an edge property and keep the UI in sync.
-     * If propertyName === 'keywords', also reflect on the edge label in graphology.
-     */
     async updateEdgeAndSelect(edgeId, dynamicId, sourceId, targetId, propertyName, newValue) {
       const sigmaGraph = this.sigmaGraph
       const rawGraph = this.rawGraph
