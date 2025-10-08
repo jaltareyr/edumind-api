@@ -1,4 +1,5 @@
-import { apiRequest, buildQuery } from './http'
+import { apiRequest, buildQuery, resolveBaseUrl } from './http'
+import { getToken } from '@/api/auth'
 
 const basePath = '/questions'
 
@@ -75,4 +76,26 @@ export const deleteQuestion = ({ id, query, headers } = {}) => {
     query: normaliseQuery(query),
     headers,
   })
+}
+
+export const exportQuestions = async ({ payload, headers } = {}) => {
+  if (!payload) {
+    throw new Error('exportQuestions requires a payload parameter')
+  }
+  const url = resolveBaseUrl();
+
+  const token = getToken()
+  
+  const h = new Headers(headers);
+
+  h.set('Content-Type', 'application/json')
+  if (token) h.set('Authorization', `Bearer ${token}`)
+
+  const response = await fetch(`${url}${basePath}/export`, {
+    method: 'POST',
+    headers: h,
+    body: JSON.stringify(payload),
+    responseType: 'blob',
+  })
+  return response
 }

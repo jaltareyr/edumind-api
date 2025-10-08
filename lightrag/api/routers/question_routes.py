@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import io
+import base64
+import pandas as pd
+import logging
 from typing import Any, Dict, List, Optional, Union
 from uuid import uuid4
 from datetime import datetime
@@ -13,6 +17,199 @@ from ..database import get_db
 from ..models import Question as QuestionModel, QuestionOptionVariant as VariantModel
 from ..utils_api import get_combined_auth_dependency
 from ascii_colors import trace_exception
+
+import xml.etree.ElementTree as ET
+import zipfile
+from fastapi.responses import StreamingResponse
+import uuid
+
+def generate_ident(prefix="q"):
+    return f"{prefix}_{uuid.uuid4().hex[:12]}"
+
+def convert_questions_to_qti_zip(formatted_data, quiz_name):
+    ET.register_namespace("", "http://www.imsglobal.org/xsd/ims_qtiasiv1p2")
+
+    root = ET.Element(
+        'questestinterop',
+        {
+            "xmlns": "http://www.imsglobal.org/xsd/ims_qtiasiv1p2",
+            "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+            "xsi:schemaLocation": "http://www.imsglobal.org/xsd/ims_qtiasiv1p2 http://www.imsglobal.org/xsd/ims_qtiasiv1p2p1.xsd"
+        }
+    )
+    assessment = ET.SubElement(
+        root, 'assessment', ident=generate_ident("quiz"), title=quiz_name)
+    qtimetadata = ET.SubElement(assessment, 'qtimetadata')
+    qtimetadatafield = ET.SubElement(qtimetadata, 'qtimetadatafield')
+    ET.SubElement(qtimetadatafield, 'fieldlabel').text = "cc_maxattempts"
+    ET.SubElement(qtimetadatafield, 'fieldentry').text = "1"
+    section = ET.SubElement(assessment, 'section',
+                            ident=generate_ident("section"))
+
+    for index, row in enumerate(formatted_data):
+        item_id = generate_ident("q")
+        question_type = row["Type"]
+        point_value = str(row["Points"])
+        max_score = "100"
+        question_body = row["Question"]
+        correct_answers = row["CorrectAnswer"].split(';')
+        answer_choices = [
+            row.get(f"option {chr(i + 65)}", "") for i in range(5)
+        ]
+        valid_answers = [(idx + 1, choice) for idx,
+                         choice in enumerate(answer_choices) if choice.strip()]
+
+        item = ET.SubElement(section, 'item', ident=item_id,
+                             title=f"Question {index+1}")
+
+        itemmetadata = ET.SubElement(item, 'itemmetadata')
+        qtimetadata = ET.SubElement(itemmetadata, 'qtimetadata')
+
+        q_type_str = "multiple_choice_question" if question_type == "MC" else "multiple_answers_question"
+        qtimetadatafield = ET.SubElement(qtimetadata, 'qtimetadatafield')
+        ET.SubElement(qtimetadatafield, 'fieldlabel').text = "question_type"
+        ET.SubElement(qtimetadatafield, 'fieldentry').text = q_type_str
+
+        qtimetadatafield = ET.SubElement(qtimetadata, 'qtimetadatafield')
+        ET.SubElement(qtimetadatafield, 'fieldlabel').text = "points_possible"
+        ET.SubElement(qtimetadatafield, 'fieldentry').text = point_value
+
+        qtimetadatafield = ET.SubElement(qtimetadata, 'qtimetadatafield')
+        ET.SubElement(qtimetadatafield,
+                      'fieldlabel').text = "assessment_question_identifierref"
+        ET.SubElement(qtimetadatafield, 'fieldentry').text = item_id
+
+        presentation = ET.SubElement(item, 'presentation')
+        material = ET.SubElement(presentation, 'material')
+        mattext = ET.SubElement(material, 'mattext', texttype="text/html")
+        mattext.text = question_body
+
+        response_lid = ET.SubElement(
+            presentation, 'response_lid', ident="response1")
+        response_lid.set(
+            "rcardinality", "Multiple" if question_type == "MR" else "Single")
+        render_choice = ET.SubElement(response_lid, 'render_choice')
+
+        # Track option index -> generated option_id
+        option_index_to_id = {}
+        for idx, option_text in valid_answers:
+            option_id = generate_ident("a")
+            option_index_to_id[str(idx)] = option_id
+            response_label = ET.SubElement(
+                render_choice, 'response_label', ident=option_id)
+            material = ET.SubElement(response_label, 'material')
+            mattext = ET.SubElement(material, 'mattext', texttype="text/plain")
+            mattext.text = option_text
+
+        # Set up scoring logic
+        resprocessing = ET.SubElement(item, 'resprocessing')
+        outcomes = ET.SubElement(resprocessing, "outcomes")
+        decvar = ET.SubElement(outcomes, "decvar", maxvalue=max_score,
+                               minvalue="0", varname="SCORE", vartype="Decimal")
+        respcondition = ET.SubElement(
+            resprocessing, 'respcondition', attrib={"continue": "No"})
+        conditionvar = ET.SubElement(respcondition, 'conditionvar')
+
+        # MR = all correct must be checked (AND), MC = just one
+        # The correct_answers from CSV might be e.g. "1,3" or "2"
+        # We split by ";" for multi-part answers (if any), or use just first
+        correct_option_ids = []
+        for correct_option in correct_answers:
+            correct_option = correct_option.strip()
+            if correct_option:
+                # Sometimes CSV gives "1,3" for two answers
+                for opt in correct_option.split(","):
+                    opt = opt.strip()
+                    if opt and opt in option_index_to_id:
+                        correct_option_ids.append(option_index_to_id[opt])
+
+        if question_type == "MR":
+            and_elem = ET.SubElement(conditionvar, 'and')
+            for correct_option_id in correct_option_ids:
+                varequal = ET.SubElement(
+                    and_elem, 'varequal', respident="response1")
+                varequal.text = correct_option_id
+        else:  # MC
+            for correct_option_id in correct_option_ids:
+                varequal = ET.SubElement(
+                    conditionvar, 'varequal', respident="response1")
+                varequal.text = correct_option_id
+
+        setvar = ET.SubElement(respcondition, "setvar",
+                               action="Set", varname="SCORE")
+        setvar.text = max_score
+
+    # Serialize XML to memory
+    qti_buffer = io.BytesIO()
+    ET.ElementTree(root).write(
+        qti_buffer, encoding='ISO-8859-1', xml_declaration=True)
+    qti_bytes = qti_buffer.getvalue()
+
+    # --- 2. Zip the QTI file in memory ---
+    timestamp = datetime.now().strftime("%m%d%y%H%M%S")
+    file_name = f"questions_{timestamp}.xml"
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(file_name, qti_bytes)
+    zip_bytes = zip_buffer.getvalue()
+
+    return zip_bytes
+
+
+async def export_questions_controller(payload):
+    try:
+        filename = payload.filename
+        fileformat = payload.fileformat
+        questions = payload.questions
+
+        formatted_data = []
+        for item in questions:
+            qtype = "MR" if len(item.correct_options) > 1 else "MC"
+            corret_answers = ",".join([str(i + 1)
+                                      for i in item.correct_options])
+            options = item.options if item.options else []
+
+            row = {
+                "Type": qtype,
+                "Unused": "",
+                "Points": "1",
+                "Question": item.question,
+                "CorrectAnswer": corret_answers,
+            }
+            for i in range(5):
+                row[f"option {chr(i + 65)}"] = item.options[i] if i < len(options) else ""
+            formatted_data.append(row)
+
+        if fileformat == "csv":
+            csv_buffer = io.StringIO()
+            df = pd.DataFrame(formatted_data)
+            df.to_csv(csv_buffer, index=False)
+            csv_bytes = csv_buffer.getvalue().encode('utf-8')
+            csv_base64 = base64.b64encode(csv_bytes).decode('utf-8')
+            return {
+                "fileformat": fileformat,
+                "filedata": csv_base64
+            }
+
+        if fileformat == "qti":
+            # Generate the QTI zip in-memory
+            zip_bytes = convert_questions_to_qti_zip(
+                formatted_data, quiz_name=filename)
+            zip_base64 = base64.b64encode(zip_bytes).decode('utf-8')
+            return {
+                "fileformat": fileformat,
+                "filedata": zip_base64
+            }
+
+        else:
+            return {
+                "fileformat": fileformat,
+                "filedata": "Unsupported file format"
+            }
+
+    except Exception as e:
+        logging.error(f"Error in export_questions_controller: {e!r}")
+        raise
 
 def create_questions(
     db: Session,
@@ -142,7 +339,15 @@ class BulkPatchIn(BaseModel):
     ids: List[str]
     patch: PatchQuestionIn
 
-# ---------------------- Router ----------------------
+class ExportQuestion(BaseModel):
+    question: str
+    options: List[str] = []
+    correct_options: List[int] = []
+
+class ExportQuestionsIn(BaseModel):
+    filename: str = "questions_export"
+    fileformat: str = Field("csv", description="csv or qti")
+    questions: List[ExportQuestion]
 
 def create_question_routes(api_key: Optional[str] = None) -> APIRouter:
     router = APIRouter(prefix="/questions", tags=["questions"])
@@ -361,5 +566,44 @@ def create_question_routes(api_key: Optional[str] = None) -> APIRouter:
         except Exception as e:
             trace_exception(e)
             raise HTTPException(status_code=500, detail=f"Bulk update failed: {e}")
+    
+    @router.post("/export", dependencies=[Depends(auth)])
+    async def export_questions(payload: ExportQuestionsIn):
+        try:
+            # Generate file bytes
+            result = await export_questions_controller(payload)
+            fileformat = result["fileformat"]
+            filedata_b64 = result["filedata"]
 
+            # Decode base64 → bytes
+            file_bytes = base64.b64decode(filedata_b64)
+
+            # Define MIME type and file extension
+            if fileformat == "csv":
+                media_type = "text/csv; charset=utf-8"
+                ext = "csv"
+            elif fileformat == "qti":
+                media_type = "application/zip"
+                ext = "zip"
+            else:
+                raise HTTPException(status_code=400, detail="Unsupported file format.")
+
+            filename = f"{payload.filename}.{ext}"
+
+            # Return a binary StreamingResponse that triggers download
+            headers = {
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            }
+
+            return StreamingResponse(io.BytesIO(file_bytes), media_type=media_type, headers=headers)
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            trace_exception(e)
+            raise HTTPException(status_code=500, detail=f"Export failed: {e}")
+    
     return router

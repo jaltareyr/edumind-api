@@ -111,15 +111,15 @@ const toolCatalogue = [
     quickAction: 'Generate Distractors',
     is_new: true,
   },
+  // {
+  //   id: 'assignment-generator',
+  //   name: 'Assignment Builder',
+  //   description: 'Draft open-ended tasks that encourage critical thinking and synthesis.',
+  //   icon: 'mdi-clipboard-text-outline',
+  //   quickAction: 'Create Assignment',
+  //   is_new: true,
+  // },
   {
-    id: 'assignment-generator',
-    name: 'Assignment Builder',
-    description: 'Draft open-ended tasks that encourage critical thinking and synthesis.',
-    icon: 'mdi-clipboard-text-outline',
-    quickAction: 'Create Assignment',
-    is_new: true,
-  },
-    {
     id: 'graph-visualizer',
     name: 'Knowledge Graph Visualizer',
     description: 'Visualize and explore relationships between concepts using an interactive graph.',

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { questionsApi, sessionsApi } from '@/api'
+import { h } from 'vue'
 
 const defaultFilters = () => ({
   searchQuery: '',
@@ -108,6 +109,10 @@ export const useQuestionsStore = defineStore('questions', {
     filters: defaultFilters(),
     sessionsByWorkspace: {},
     sessionsLoading: false,
+    exportDialogOpen: false,
+    exportFormat: 'csv',
+    exportFileName: 'questions_export',
+    exporting: false,
   }),
   getters: {
     uniqueTags(state) {
@@ -367,5 +372,54 @@ export const useQuestionsStore = defineStore('questions', {
         this.sessionsLoading = false
       }
     },
+    openExportDialog() {
+      this.exportDialogOpen = true
+    },
+    closeExportDialog() {
+      this.exportDialogOpen = false
+    },
+    setExportFormat(format) {
+      this.exportFormat = format
+      const ext = format === 'qti' ? 'zip' : 'csv'
+      this.exportFileName = `questions_export.${ext}`
+    },
+    async exportQuestions() {
+      try {
+        const selectedQuestions = this.filteredQuestions;
+        this.exporting = true;
+
+        const payload = {
+          filename: this.exportFileName.replace(/\.(csv|zip)$/i, ''),
+          fileformat: this.exportFormat,
+          questions: selectedQuestions.map((q) => ({
+            question: q.question + (q.source ? ` (Source: ${q.source})` : ''),
+            options: q.options,
+            correct_options: q.correct_options,
+          })),
+        };
+
+        const res = await questionsApi.exportQuestions({ payload });
+
+        const blob = await res.blob()
+        const contentDisposition = res.headers.get('Content-Disposition')
+        const filename =
+          contentDisposition?.split('filename=')[1]?.replace(/["']/g, '') ||
+          `${this.exportFileName}.${this.exportFormat}`
+
+        const link = document.createElement('a')
+        link.href = URL.createObjectURL(blob)
+        link.download = filename
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(link.href)
+
+      } catch (err) {
+        console.error('Export failed', err);
+      } finally {
+        this.exporting = false;
+        this.exportDialogOpen = false;
+      }
+    }
   },
 })

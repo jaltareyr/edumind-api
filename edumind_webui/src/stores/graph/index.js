@@ -169,6 +169,8 @@ export const useGraphStore = defineStore('graph', {
         const resp = await graphApi.queryGraph({ query, headers })
         const { nodes, edges } = this._normalizeGraphResponse(resp)
 
+        console.log('nodes:', nodes, 'edges:', edges);
+
         const rg = new RawGraph()
         rg.nodes = nodes || []
         rg.edges = edges || []
@@ -189,7 +191,7 @@ export const useGraphStore = defineStore('graph', {
           const attrs = {
             x: n.x ?? Math.random() * 10 - 5,
             y: n.y ?? Math.random() * 10 - 5,
-            size: n.size ?? 10,   // was 4
+            size: n.size ?? 4,   // was 4
             color: n.color ?? '#7aa2ff',
             label: n.properties?.entity_id || n.id,
             labels: n.labels || [],

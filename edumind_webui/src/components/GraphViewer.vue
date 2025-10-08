@@ -18,7 +18,6 @@ const graphStore = useGraphStore()
 const homeStore = useHomeStore()
 
 // Store-backed state
-const selectedNode = computed(() => graphStore.selectedNode)
 const isFetching = computed(() => graphStore.isFetching)
 
 // Local UI state (Vuetify controls only)
@@ -28,54 +27,26 @@ const enableNodeDrag = ref(true)
 let sigma = null
 let currentGraph = null
 
-// Colors
-const hslToHex = (h, s, l) => {
-  s/=100; l/=100;
-  const k = n => (n + h/30) % 12;
-  const a = s * Math.min(l, 1 - l);
-  const f = n => l - a * Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n), 1)));
-  const toHex = x => Math.round(255 * x).toString(16).padStart(2, "0");
-  return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
-};
-
-// Pastel color generator using golden-angle hue spacing
-function pastelColor(index, opts = {}) {
-  const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches
-  const defaults = prefersDark ? { s: 35, l: 68, hueStart: 0 } : { s: 38, l: 78, hueStart: 0 }
-  const { s, l, hueStart } = { ...defaults, ...opts }
-  const golden = 137.508;               // golden-angle degrees
-  const h = (hueStart + index * golden) % 360;
-  return hslToHex(h, s, l);
-}
-
-// Readable label color (black/white) by luminance
-function readableText(hex) {
-  const c = hex.replace('#','');
-  const r = parseInt(c.slice(0,2),16), g = parseInt(c.slice(2,4),16), b = parseInt(c.slice(4,6),16);
-  const L = 0.2126*(r/255)**2.2 + 0.7152*(g/255)**2.2 + 0.0722*(b/255)**2.2;
-  return L > 0.55 ? '#111' : '#fff';
-}
-
 // --- Default Sigma settings (JS only) ---
 const defaultSettings = {
   allowInvalidContainer: true,
   defaultNodeType: 'default',
   defaultEdgeType: 'curvedNoArrow',
   renderEdgeLabels: false,
-  labelGridCellSize: 60,
+  labelGridCellSize: 100,
   labelRenderedSizeThreshold: 10,
   enableEdgeEvents: true,
   labelColor: { color: '#000', attribute: 'labelColor' },
   edgeLabelColor: { color: '#000', attribute: 'labelColor' },
-  edgeLabelSize: 8,
-  labelSize: 12,
+  edgeLabelSize: 15,
+  labelSize: 20,
   defaultNodeSize: 8,
-  minNodeSize: 4,
-  maxNodeSize: 40,
+  minNodeSize: 1,
+  maxNodeSize: 12,
 
-  defaultEdgeSize: 2,
-  minEdgeSize: 4,
-  maxEdgeSize: 10,
+  defaultEdgeSize: 8,
+  minEdgeSize: 8,
+  maxEdgeSize: 20,
 
   edgeProgramClasses: {
     arrow: EdgeArrowProgram,
@@ -130,7 +101,14 @@ function sizeByDegree(g) {
 
 function runSpringLayout(g) {
   if (!g || g.order === 0) return
-  FA2.assign(g, { iterations: 200, settings: { slowDown: 2 } })
+  FA2.assign(g, {
+  iterations: 100,
+  settings: {
+    scalingRatio: 4,
+    gravity: 15,
+    strongGravityMode: false,
+  }
+})
 }
 
 function resetCamera() {
@@ -277,20 +255,6 @@ watch(
     resetCamera()
   }
 )
-
-// ---------- Lifecycle ----------
-// onMounted(async () => {
-//   const queryLabel = '*'
-
-//   await nextTick()
-//   if (!graphStore.sigmaGraph) createRenderer(new DirectedGraph())
-//   await graphStore.fetchAllDatabaseLabels()
-//   try {
-//     const headers = { 'X-Workspace': useWorkspaceContextStore().workspaceId }
-//     await graphStore.fetchGraph({ query: { limit: 1000 }, headers })
-//     console.log('order', graphStore.sigmaGraph?.order, 'edges', graphStore.sigmaGraph?.size)
-//   } catch (e) { console.error(e) }
-// })
 
 onBeforeUnmount(() => {
   killRenderer()
