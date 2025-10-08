@@ -225,21 +225,6 @@ watch(
   { immediate: true }
 )
 
-watch(
-  () => [graphStore.moveToSelectedNode, graphStore.selectedNode],
-  ([moveFlag, node]) => {
-    if (!sigma || !node || !moveFlag || !currentGraph) return
-    const attrs = currentGraph.getNodeAttributes(node)
-    if (!attrs) return
-    const { x, y } = attrs
-    if (!isFinite(x) || !isFinite(y)) return
-    const cam = sigma.getCamera()
-    // Keep user’s current zoom; only pan
-    cam.animate({ x, y, ratio: cam.getState().ratio }, { duration: 500 })
-    graphStore.setMoveToSelectedNode(false)
-  }
-)
-
 onMounted(() => {
   createRenderer(new DirectedGraph())
 })

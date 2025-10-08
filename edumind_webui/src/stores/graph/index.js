@@ -92,7 +92,7 @@ export const useGraphStore = defineStore('graph', {
     setSigmaInstance(instance) { this.sigmaInstance = instance },
     setSelectedNode(nodeId, moveToSelectedNode = false) {
       this.selectedNode = nodeId
-      this.moveToSelectedNode = !!moveToSelectedNode
+      // this.moveToSelectedNode = !!moveToSelectedNode
     },
     setFocusedNode(nodeId) { this.focusedNode = nodeId },
     setSelectedEdge(edgeId) { this.selectedEdge = edgeId },
