@@ -40,7 +40,7 @@ const defaultSigmaSettings: Partial<SigmaSettings> = {
   },
   nodeProgramClasses: {
     default: NodeBorderProgram,
-    circel: NodeCircleProgram,
+    circle: NodeCircleProgram,
     point: NodePointProgram
   },
   labelGridCellSize: 60,

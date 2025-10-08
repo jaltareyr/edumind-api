@@ -3,6 +3,7 @@ import DashboardPage from '@/pages/DashboardPage.vue';
 import StudioPage from '@/pages/StudioPage.vue';
 import QuestionsPage from '@/pages/QuestionsPage.vue';
 import LoginPage from '@/pages/LoginPage.vue';
+import GraphViewerPage from '@/pages/GraphViewerPage.vue';
 import { useUserStore } from '@/stores';
 
 const routes = [
@@ -26,6 +27,12 @@ const routes = [
     path: '/questions',
     name: 'Questions',
     component: QuestionsPage,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/visualizer',
+    name: 'Visualizer',
+    component: GraphViewerPage,
     meta: { requiresAuth: true }
   },
   {

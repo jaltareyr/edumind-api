@@ -29,13 +29,16 @@
     <v-card-text class="canvas-panel__body">
       <v-tabs v-model="tabModel" class="canvas-panel__tabs" show-arrows color="primary">
         <v-tab
-          v-for="tab in tabs"
+          v-for="tab in [...tabs, ...viewerTabs]"
           :key="tab.id"
           :value="tab.id"
           class="text-subtitle-2 font-weight-medium text-capitalize"
         >
           <div class="canvas-panel__tab">
-            <v-icon size="18">mdi-notebook-outline</v-icon>
+            <v-icon size="18">
+              <!-- Different icon for viewer tabs -->
+              {{ tab.isViewer ? 'mdi-eye-outline' : 'mdi-notebook-outline' }}
+            </v-icon>
             <span>{{ tab.name }}</span>
             <v-btn
               size="x-small"
@@ -44,58 +47,71 @@
               color="primary"
               :loading="isDeletingCanvas(tab.id)"
               :disabled="isDeletingCanvas(tab.id)"
-              @click.stop="handleCloseTab(tab.id)"
+              @click.stop="handleCloseViewerOrCanvas(tab)"
             />
           </div>
         </v-tab>
       </v-tabs>
 
       <v-window v-model="tabModel" class="canvas-panel__window">
-        <v-window-item v-for="tab in tabs" :key="tab.id" :value="tab.id">
+        <v-window-item v-for="tab in [...tabs, ...viewerTabs]" :key="tab.id" :value="tab.id">
           <div class="canvas-panel__pane">
-            <div v-if="isCanvasLoading(tab.id)" class="canvas-panel__loading">
-              <v-progress-circular color="primary" size="36" indeterminate />
-            </div>
-            <div v-else-if="tab.outputs.length === 0" class="canvas-panel__empty">
-              <v-sheet class="canvas-panel__empty-sheet" color="white" variant="outlined">
-                <v-avatar color="primary" size="56" variant="flat">
-                  <v-icon size="28" color="white">mdi-compass-outline</v-icon>
-                </v-avatar>
-                <h3 class="text-subtitle-1 font-weight-semibold mt-4 mb-2">Your canvas is ready</h3>
-                <p class="text-body-2 text-medium-emphasis mb-0">
-                  Trigger a tool from the left panel to see fresh content appear here.
-                </p>
-              </v-sheet>
-            </div>
-            <div v-else class="canvas-panel__list">
-              <template v-for="output in tab.outputs" :key="output.id">
-                <MCQCard
-                  :mcq="output"
-                  :show-actions="true"
-                  :selectable="distractorSelectionActive"
-                  :selected="selectedDistractorQuestionId === output.id"
-                  @delete="handleDeleteOutput"
-                  @select="handleSelectForDistractor"
-                />
-              </template>
-            </div>
+            <!-- VIEWER MODE -->
+            <template v-if="tab.isViewer">
+              <!-- Let GraphViewer take the whole pane -->
+              <div class="canvas-panel__viewer">
+                <GraphViewer />
+              </div>
+            </template>
+
+            <!-- CANVAS MODE -->
+            <template v-else>
+              <div v-if="isCanvasLoading(tab.id)" class="canvas-panel__loading">
+                <v-progress-circular color="primary" size="36" indeterminate />
+              </div>
+              <div v-else-if="tab.outputs?.length === 0" class="canvas-panel__empty">
+                <v-sheet class="canvas-panel__empty-sheet" color="white" variant="outlined">
+                  <v-avatar color="primary" size="56" variant="flat">
+                    <v-icon size="28" color="white">mdi-compass-outline</v-icon>
+                  </v-avatar>
+                  <h3 class="text-subtitle-1 font-weight-semibold mt-4 mb-2">Your canvas is ready</h3>
+                  <p class="text-body-2 text-medium-emphasis mb-0">
+                    Trigger a tool from the left panel to see fresh content appear here.
+                  </p>
+                </v-sheet>
+              </div>
+              <div v-else class="canvas-panel__list">
+                <template v-for="output in tab.outputs" :key="output.id">
+                  <MCQCard
+                    :mcq="output"
+                    :show-actions="true"
+                    :selectable="distractorSelectionActive"
+                    :selected="selectedDistractorQuestionId === output.id"
+                    @delete="handleDeleteOutput"
+                    @select="handleSelectForDistractor"
+                  />
+                </template>
+              </div>
+            </template>
           </div>
         </v-window-item>
+
       </v-window>
     </v-card-text>
   </v-card>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import MCQCard from '@/components/MCQCard.vue';
+import GraphViewer from '@/components/GraphViewer.vue'
 import { useHomeStore, useDistractorGeneratorStore } from '@/stores';
 
 const homeStore = useHomeStore();
 const distractorStore = useDistractorGeneratorStore();
 
-const { tabs, activeTabId, activeTab, hasActiveOutputs, canAddTab, creatingCanvas } = storeToRefs(homeStore);
+const { tabs, viewerTabs, activeTabId, activeTab, hasActiveOutputs, canAddTab, creatingCanvas } = storeToRefs(homeStore);
 const { selectionActive: distractorSelectionActive, questionId: selectedDistractorQuestionId } = storeToRefs(distractorStore);
 
 const tabModel = computed<string>({
@@ -121,6 +137,14 @@ const handleAddTab = async () => {
     console.error('Failed to create canvas', error);
   }
 };
+
+const handleCloseViewerOrCanvas = async (tab) => {
+  if (tab.isViewer) {
+    homeStore.removeViewerTab(tab.id)
+    return
+  }
+  handleCloseTab(tab.id)
+}
 
 const handleCloseTab = async (tabId: string) => {
   const targetTab = tabs.value.find((tab) => tab.id === tabId);
@@ -241,6 +265,18 @@ const handleSelectForDistractor = (payload: { id: string; question: string }) =>
   display: flex;
   overflow: hidden;
   flex-direction: column;
+  min-height: 0;
+}
+
+.canvas-panel__viewer {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.canvas-panel__viewer :deep(> *) {
+  /* Let GraphViewer's root stretch */
+  flex: 1;
   min-height: 0;
 }
 

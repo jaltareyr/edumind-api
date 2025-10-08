@@ -3,6 +3,7 @@ import { sessionsApi, questionsApi } from '@/api'
 import { useAppStore } from '../AppStore'
 import { useWorkspaceContextStore } from '../workspaceContext'
 import { useUserStore } from '../user'
+import { useGraphStore } from '../graph'
 
 const pickRandom = (items) => items[Math.floor(Math.random() * items.length)]
 
@@ -118,9 +119,25 @@ const toolCatalogue = [
     quickAction: 'Create Assignment',
     is_new: true,
   },
+    {
+    id: 'graph-visualizer',
+    name: 'Knowledge Graph Visualizer',
+    description: 'Visualize and explore relationships between concepts using an interactive graph.',
+    icon: 'mdi-graph-outline',
+    quickAction: 'Visualize Graph',
+    is_new: true,
+  },
 ]
 
 const createOutputId = () => `output-${Math.random().toString(36).slice(2, 10)}`
+const createViewerTabId = () => `viewer-${Math.random().toString(36).slice(2, 10)}`
+
+const mapViewerTab = (partial, index = 0) => ({
+  id: partial?.id ?? createViewerTabId(),
+  name: partial?.name?.trim() || `Viewer ${index + 1}`,
+  meta: partial?.meta ?? null,
+  isViewer: partial?.isViewer ?? true,   // <- preserve / default true
+})
 
 const buildMcqPayload = () => {
   const sample = pickRandom(mcqPool)
@@ -266,8 +283,10 @@ export const useHomeStore = defineStore('home', {
     tools: toolCatalogue,
     expandedToolIds: toolCatalogue.slice(0, 0).map((tool) => tool.id),
     tabs: [],
+    viewerTabs: [],
     activeTabId: '',
     tabCounter: 0,
+    viewerTabCounter: 0,
     loading: false,
     error: null,
     creatingCanvas: false,
@@ -290,7 +309,14 @@ export const useHomeStore = defineStore('home', {
     },
     canAddTab() {
       const appStore = useAppStore()
-      return this.tabs.length < appStore.maxCanvasTabs
+      return this.tabs.length < 2
+    },
+    canAddViewerTab() {
+      const appStore = useAppStore()
+      return this.viewerTabs.length < 1
+    },
+    viewerTabCount(state) {
+      return state.viewerTabs.length
     },
     isDeletingCanvas: (state) => (canvasId) => state.deletingCanvasIds.includes(canvasId),
     isCanvasLoading: (state) => (canvasId) => Boolean(state.canvasOutputStatus[canvasId]?.loading),
@@ -314,7 +340,11 @@ export const useHomeStore = defineStore('home', {
     },
     setActiveTab(tabId) {
       this.activeTabId = tabId
-      if (tabId) {
+      if (!tabId) return
+
+      // Only hydrate if it’s a CANVAS tab, not a viewer tab
+      const isCanvas = this.tabs.some(t => t.id === tabId)
+      if (isCanvas) {
         this.loadCanvasOutputs({ tabId }).catch(() => {})
       }
     },
@@ -722,6 +752,52 @@ export const useHomeStore = defineStore('home', {
         return output
       } catch (error) {
         console.error('Failed to execute tool', error)
+        this.error = error
+        return null
+      }
+    },
+    setViewerTabs(tabs = []) {
+      const mapped = tabs.map((t, i) => mapViewerTab(t, i))
+      this.viewerTabs = mapped
+      this.viewerTabCounter = mapped.length
+    },
+    createViewerTab(partial = {}) {
+      if (!this.canAddViewerTab) return null
+
+      const nextIndex = this.viewerTabCounter + 1
+      const tab = mapViewerTab(
+        { name: partial.name, meta: partial.meta, id: partial.id, isViewer: true }, // <- here
+        nextIndex - 1
+      )
+
+      if (this.viewerTabs.some((t) => t.id === tab.id)) return null
+
+      this.viewerTabs = [...this.viewerTabs, tab]
+      this.viewerTabCounter = this.viewerTabs.length
+      return tab
+    },
+    removeViewerTab(tabId) {
+      if (!tabId) return false
+      const exists = this.viewerTabs.some((t) => t.id === tabId)
+      if (!exists) return false
+
+      this.viewerTabs = this.viewerTabs.filter((t) => t.id !== tabId)
+      this.viewerTabCounter = this.viewerTabs.length
+      return true
+    },
+    async loadGraph() {
+      const graphStore = useGraphStore()
+      await graphStore.fetchAllDatabaseLabels()
+      const headers = { 'X-Workspace': useWorkspaceContextStore().workspaceId }
+      await graphStore.fetchGraph({ query: { limit: 1000 }, headers })
+    },
+    async handleVisualizeGraph() {
+      try {
+        const tab = this.createViewerTab({ name: `Viewer ${this.viewerTabCounter + 1}`, meta: {}, isViewer: true });
+        this.setActiveTab(tab.id);
+        await this.loadGraph();
+      } catch (error) {
+        console.error('Failed to visualize graph', error)
         this.error = error
         return null
       }

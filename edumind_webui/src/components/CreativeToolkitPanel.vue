@@ -89,6 +89,10 @@ const handleExecute = (toolId: ToolConfig['id']) => {
   if (toolId === 'mcq-generator' || toolId === 'distractor-generator') {
     return
   }
+  if (toolId === 'graph-visualizer') {
+    homeStore.handleVisualizeGraph()
+    return
+  }
   homeStore.executeTool(toolId)
 }
 </script>
