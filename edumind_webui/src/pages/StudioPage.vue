@@ -17,11 +17,11 @@ import ToolsPanel from '@/components/ToolsPanel.vue'
 import CanvasPanel from '@/components/CanvasPanel.vue'
 import {
   useAppStore,
-  useHomeStore,
   useDashboardStore,
   useWorkspaceContextStore,
   useHeaderStore,
 } from '@/stores'
+import { useHomeStore } from '@/stores/home'
 
 const appStore = useAppStore()
 const homeStore = useHomeStore()

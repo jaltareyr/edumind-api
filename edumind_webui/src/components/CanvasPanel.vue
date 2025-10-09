@@ -106,7 +106,8 @@ import { computed, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import MCQCard from '@/components/MCQCard.vue';
 import GraphViewer from '@/components/GraphViewer.vue'
-import { useHomeStore, useDistractorGeneratorStore } from '@/stores';
+import { useDistractorGeneratorStore } from '@/stores';
+import { useHomeStore } from '@/stores/home'
 
 const homeStore = useHomeStore();
 const distractorStore = useDistractorGeneratorStore();

@@ -58,7 +58,7 @@
 <script setup lang="ts">
 import { computed, type Ref } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useHomeStore } from '@/stores'
+import { useHomeStore } from '@/stores/home'
 import MCQGeneratorForm from './MCQGeneratorForm.vue'
 import DistractorGeneratorForm from './DistractorGeneratorForm.vue'
 
