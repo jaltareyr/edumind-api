@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
   return {
-    base: '/edumind_webui/',
+    base: '/',
     plugins: [
       Vue({ template: { transformAssetUrls } }),
 
