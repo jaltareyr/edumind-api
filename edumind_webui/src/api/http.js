@@ -1,6 +1,6 @@
 import { getToken, decodeJwt } from '@/api/auth'
 
-const DEFAULT_TIMEOUT = 100000
+const DEFAULT_TIMEOUT = 300000 // 5 minutes for agent content generation
 
 export const resolveBaseUrl = () => {
   const envUrl = import.meta?.env?.VITE_EDUMIND_API_BASE_URL || "http://localhost:9621"

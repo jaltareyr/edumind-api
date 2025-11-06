@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from agents import Runner
 
@@ -62,6 +63,11 @@ class ContentGenerationResponse(BaseModel):
         description="List of file paths for generated documents"
     )
     
+    download_urls: list[str] = Field(
+        default_factory=list,
+        description="List of download URLs for generated files"
+    )
+    
     topics_covered: list[str] = Field(
         default_factory=list,
         description="List of topics that were covered in the generated content"
@@ -97,8 +103,9 @@ def create_agent_routes(api_key: str = None):
             # Unpack the RAG instance and doc manager
             rag, doc_manager = pair
             
-            # Set up output directory
+            # Set up output directory - convert to absolute path to avoid duplication
             output_dir = Path(request.output_dir) if request.output_dir else Path("./output")
+            output_dir = output_dir.resolve()  # Convert to absolute path
             output_dir.mkdir(parents=True, exist_ok=True)
             
             # Set up tool context with RAG instance and configuration
@@ -171,10 +178,19 @@ def create_agent_routes(api_key: str = None):
             
             # Check if files were actually created
             verified_files = []
+            download_urls = []
             for file_path in generated_files:
-                if Path(file_path).exists():
-                    verified_files.append(file_path)
-                    logger.info(f"Verified generated file: {file_path}")
+                abs_path = Path(file_path)
+                if not abs_path.is_absolute():
+                    abs_path = output_dir / file_path
+                
+                if abs_path.exists():
+                    verified_files.append(str(abs_path))
+                    # Create download URL with filename
+                    filename = abs_path.name
+                    download_url = f"/agent/download/{filename}"
+                    download_urls.append(download_url)
+                    logger.info(f"Verified generated file: {abs_path}")
             
             # Determine status
             if verified_files:
@@ -191,6 +207,7 @@ def create_agent_routes(api_key: str = None):
                 status=status,
                 message=message,
                 generated_files=verified_files or generated_files,
+                download_urls=download_urls,
                 topics_covered=topics_covered,
                 agent_trace_id=getattr(result, 'trace_id', None),
             )
@@ -202,8 +219,52 @@ def create_agent_routes(api_key: str = None):
                 message="Content generation failed",
                 error=str(e),
                 generated_files=[],
+                download_urls=[],
                 topics_covered=[],
             )
+    
+    
+    @router.get(
+        "/agent/download/{filename}",
+        summary="Download Generated File",
+        description="Download a generated PDF or PowerPoint file.",
+        dependencies=[Depends(combined_auth)]
+    )
+    async def download_generated_file(
+        filename: str,
+    ) -> FileResponse:
+        """
+        Download a generated file by filename.
+        """
+        try:
+            # Security: Only allow alphanumeric, dots, dashes, underscores in filename
+            import re
+            if not re.match(r'^[\w\-\.]+\.(pdf|pptx)$', filename):
+                raise HTTPException(status_code=400, detail="Invalid filename")
+            
+            # Look for file in output directory
+            output_dir = Path("./output").resolve()
+            file_path = output_dir / filename
+            
+            if not file_path.exists():
+                raise HTTPException(status_code=404, detail="File not found")
+            
+            # Determine media type
+            media_type = "application/pdf" if filename.endswith('.pdf') else "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            
+            return FileResponse(
+                path=str(file_path),
+                media_type=media_type,
+                filename=filename,
+                headers={
+                    "Content-Disposition": f"attachment; filename={filename}"
+                }
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error downloading file: {str(e)}", exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
     
     
     @router.get(

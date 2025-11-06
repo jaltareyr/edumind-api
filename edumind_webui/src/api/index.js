@@ -1,6 +1,7 @@
 export * as documentsApi from './documents'
 export * as questionsApi from './questions'
 export * as aiApi from './ai'
+export * as agentApi from './agent'
 export * as sessionsApi from './sessions'
 export * as workspacesApi from './workspaces'
 export * as queryApi from './query'

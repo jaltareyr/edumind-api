@@ -36,6 +36,7 @@
           <v-expansion-panel-text>
             <MCQGeneratorForm v-if="tool.id === 'mcq-generator'" />
             <DistractorGeneratorForm v-else-if="tool.id === 'distractor-generator'" />
+            <NotesMakerForm v-else-if="tool.id === 'notes-maker'" />
             <div v-else class="tools-panel__cta">
               <v-btn
                 color="primary"
@@ -61,6 +62,7 @@ import { storeToRefs } from 'pinia'
 import { useHomeStore } from '@/stores/home'
 import MCQGeneratorForm from './MCQGeneratorForm.vue'
 import DistractorGeneratorForm from './DistractorGeneratorForm.vue'
+import NotesMakerForm from './NotesMakerForm.vue'
 
 interface ToolConfig {
   id: string
@@ -86,7 +88,7 @@ const panelModel = computed<string[]>({
 })
 
 const handleExecute = (toolId: ToolConfig['id']) => {
-  if (toolId === 'mcq-generator' || toolId === 'distractor-generator') {
+  if (toolId === 'mcq-generator' || toolId === 'distractor-generator' || toolId === 'notes-maker') {
     return
   }
   if (toolId === 'graph-visualizer') {
