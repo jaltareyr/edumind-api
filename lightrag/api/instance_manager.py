@@ -37,6 +37,7 @@ from lightrag.api.routers.workspace_routes import create_workspace_routes
 from lightrag.api.routers.session_routes import create_session_routes
 from lightrag.api.routers.chat_routes import create_chat_routes
 from lightrag.api.routers.question_routes import create_question_routes
+from lightrag.api.routers.agent_routes import create_agent_routes
 
 from lightrag.utils import logger, set_verbose_debug
 from lightrag.kg.shared_storage import (
@@ -585,6 +586,7 @@ def create_multi_workspace_app(args):
     app.include_router(create_session_routes(api_key))
     app.include_router(create_chat_routes(api_key))
     app.include_router(create_question_routes(api_key))
+    app.include_router(create_agent_routes(api_key))
 
     @app.get("/")
     async def redirect_to_webui():

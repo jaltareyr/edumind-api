@@ -3,3 +3,6 @@ pymysql
 SQLAlchemy>=2.0
 langchain
 langchain_openai
+openai-agents>=0.5.0
+python-pptx
+reportlab
