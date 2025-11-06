@@ -1,5 +1,5 @@
 :root {
-  font-family: 'Overpass', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color: #0f172a;
@@ -12,7 +12,7 @@
 
 /* Ensure global font applies outside Vuetify components too */
 html, body, #app {
-  font-family: 'Overpass', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif !important;
 }
 
 *, *::before, *::after {

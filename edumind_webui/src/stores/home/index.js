@@ -127,6 +127,14 @@ const toolCatalogue = [
     quickAction: 'Visualize Graph',
     is_new: true,
   },
+    {
+    id: 'notes-maker',
+    name: 'Notes Maker',
+    description: 'Create and export (PDF / PPT) notes with AI-powered insights.',
+    icon: 'mdi-note-text-outline',
+    quickAction: 'Create Notes',
+    is_new: true,
+  },
 ]
 
 const createOutputId = () => `output-${Math.random().toString(36).slice(2, 10)}`
