@@ -1,0 +1,21 @@
+services:
+  mysql:
+    container_name: edumind-mysql
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: Admin123
+      MYSQL_DATABASE: edumind
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init-data.sql:/docker-entrypoint-initdb.d/init-data.sql:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pAdmin123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mysql_data:

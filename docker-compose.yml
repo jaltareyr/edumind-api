@@ -1,24 +1,60 @@
 services:
-  lightrag:
-    container_name: lightrag
-    image: ghcr.io/hkuds/lightrag:latest
+  # MySQL Database
+  mysql:
+    container_name: edumind-mysql
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: Admin123
+      MYSQL_DATABASE: edumind
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init-data.sql:/docker-entrypoint-initdb.d/init-data.sql:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pAdmin123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - edumind-network
+
+  # FastAPI LightRAG Application
+  api:
+    container_name: edumind-api
     build:
       context: .
       dockerfile: Dockerfile
-      tags:
-        - ghcr.io/hkuds/lightrag:latest
     ports:
-      - "${PORT:-9621}:9621"
+      - "9621:9621"
+    env_file:
+      - .env
+    environment:
+      # Database connection (overrides .env values)
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=Admin123
+      - DB_DATABASE=edumind
+      # TikToken cache
+      - TIKTOKEN_CACHE_DIR=/app/data/tiktoken
     volumes:
       - ./data/rag_storage:/app/data/rag_storage
       - ./data/inputs:/app/data/inputs
       - ./data/tiktoken:/app/data/tiktoken
-      - ./config.ini:/app/config.ini
-      - ./.env:/app/.env
-    env_file:
-      - .env
-    environment:
-      - TIKTOKEN_CACHE_DIR=/app/data/tiktoken
+      - ./config.ini:/app/config.ini:ro
+      - ./.env:/app/.env:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
     restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    networks:
+      - edumind-network
+
+networks:
+  edumind-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
